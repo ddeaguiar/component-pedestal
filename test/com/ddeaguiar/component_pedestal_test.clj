@@ -1,7 +1,7 @@
-(ns component-pedestal-test
+(ns com.ddeaguiar.component-pedestal-test
   (:require
    [clojure.test :refer :all]
-   [component-pedestal :as cp]
+   [com.ddeaguiar.component-pedestal :as cp]
    [com.stuartsierra.component :as component]
    [io.pedestal.http :as http]
    [io.pedestal.test :refer [response-for]]
@@ -22,8 +22,7 @@
       (with-system [test-system (my-test-system-init-fn)]
         (let [service (pedestal/service-fn (:pedestal test-system))
               response (response-for service :get \"/\")]
-          (is (= 200 (:status response))))))
-  "
+          (is (= 200 (:status response))))))"
   [[bound-var binding-expr] & body]
   `(let [~bound-var (component/start ~binding-expr)]
      (try

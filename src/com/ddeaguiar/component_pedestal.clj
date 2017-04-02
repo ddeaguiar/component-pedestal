@@ -1,10 +1,12 @@
-(ns component-pedestal
+(ns com.ddeaguiar.component-pedestal
+  (:refer-clojure :exclude [ref])
   (:require [com.stuartsierra.component :as component]
             [io.pedestal.http :as http]
             [io.pedestal.interceptor :as interceptor]
             [io.pedestal.log :as log]
             [io.pedestal.http.route :as route]
-            [clojure.walk :as walk]))
+            [clojure.walk :as walk]
+            [com.ddeaguiar.component-pedestal.util :as util]))
 
 (defrecord Interceptor [name enter error leave]
   interceptor/IntoInterceptor
@@ -51,19 +53,39 @@
   [service-map]
   (= :test (:env service-map)))
 
-(defrecord Ref [key])
+(deftype Ref [key])
 
 (defn ref
   [key]
   {:pre [(keyword? key)]}
-  (->Ref key))
+  (Ref. key))
 
 (defn ref? [x] (instance? Ref x))
+
+(defn- ref-alternative
+  [r dict]
+  (->> dict
+       keys
+       (map #(vector % (util/jaro-winkler (str (.key r)) (str %))))
+       (sort-by last)
+       last
+       first))
+
+(defn- resolve-ref
+  [r dict]
+  {:pre [(ref? r)]}
+  (if-let [resolved (get dict (.key r))]
+    resolved
+    (throw (ex-info (format "Ref '%s' was not resolved. Did you mean '%s'?"
+                            (.key r)
+                            (ref-alternative r dict))
+                    {:reason ::unresolvable-component-reference
+                     :cause  (.key r)}))))
 
 (defn resolve-refs
   [routes router-deps]
   (walk/postwalk (fn [x]
-                   (cond->> x (ref? x) (get router-deps (:key x))))
+                   (cond-> x (ref? x) (resolve-ref router-deps)))
                  routes))
 
 (defprotocol Service

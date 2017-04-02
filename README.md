@@ -21,7 +21,7 @@ initialization.
 ```
 (require '[io.pedestal.http :as http])
 (require '[io.pedestal.http.body-params :as body-params])
-(require '[component.pedestal :as cp])
+(require '[com.ddeaguiar.component.pedestal :as cp])
 (require '[com.stuartsierra.component :as component])
 (require '[ring-resp/response :as ring-resp])
 
