@@ -98,6 +98,6 @@
   (service-fn [this]
     (get-in this [:server ::http/service-fn])))
 
-(defn new-pedestal
+(defn component-pedestal
   ([] (map->Pedestal {}))
   ([service] (map->Pedestal {:service service})))

@@ -80,7 +80,7 @@
                                                  :h2?  false
                                                  :ssl? false}}
              :pedestal (component/using
-                        (cp/new-pedestal)
+                        (cp/component-pedestal)
                         [:service
                          :user-handler
                          :user-interceptor])))
