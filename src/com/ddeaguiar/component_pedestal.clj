@@ -6,7 +6,7 @@
             [io.pedestal.log :as log]
             [io.pedestal.http.route :as route]
             [clojure.walk :as walk]
-            [com.ddeaguiar.component-pedestal.util :as util]))
+            [clj-fuzzy.jaro-winkler :refer [jaro-winkler]]))
 
 (defrecord Interceptor [name enter error leave]
   interceptor/IntoInterceptor
@@ -17,6 +17,7 @@
                                (when error (fn [ctx] (error this ctx))))))
 
 (defn component-interceptor
+  "Interceptor ctor."
   [interceptor-map]
   (map->Interceptor interceptor-map))
 
@@ -25,7 +26,7 @@
   (when (and x (.isBound x))
     (var-get x)))
 
-(defn resolve-sym
+(defn- resolve-sym
   [sym]
   (some-> sym resolve var-get))
 
@@ -41,6 +42,7 @@
                                                                (:request ctx)))))}))))
 
 (defn component-handler
+  "Handler ctor."
   [sym]
   {:pre [(symbol? sym)]}
   (Handler. sym))
@@ -53,6 +55,11 @@
   [service-map]
   (= :test (:env service-map)))
 
+;; Using deftype instead of defrecord because
+;; I don't want Ref to be supported with 'into'.
+;; A common pattern with route definitions is:
+;;
+;; `["/foo" :get (into common-interceptors [my-interceptor my-handler])]`
 (deftype Ref [key])
 
 (defn ref
@@ -66,12 +73,13 @@
   [r dict]
   (->> dict
        keys
-       (map #(vector % (util/jaro-winkler (str (.key r)) (str %))))
+       (map #(vector % (jaro-winkler (str (.key r)) (str %))))
        (sort-by last)
        last
        first))
 
 (defn- resolve-ref
+  "Resolves r using dict."
   [r dict]
   {:pre [(ref? r)]}
   (if-let [resolved (get dict (.key r))]
@@ -83,10 +91,11 @@
                      :cause  (.key r)}))))
 
 (defn resolve-refs
-  [routes router-deps]
+  "Resolves all References in data using dict."
+  [data dict]
   (walk/postwalk (fn [x]
-                   (cond-> x (ref? x) (resolve-ref router-deps)))
-                 routes))
+                   (cond-> x (ref? x) (resolve-ref dict)))
+                 data))
 
 (defprotocol Service
   (service-fn [this]
@@ -121,5 +130,6 @@
     (get-in this [:server ::http/service-fn])))
 
 (defn component-pedestal
+  "Pedestal ctor."
   ([] (map->Pedestal {}))
   ([service] (map->Pedestal {:service service})))

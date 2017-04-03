@@ -89,7 +89,7 @@
                  route/expand-routes
                  route/url-for-routes))
 
-(deftest root-test
+(deftest component-pedestal-test
   (with-system [test-system system]
     (let [service (cp/service-fn (:pedestal test-system))]
       (is (= "Root handler"
@@ -117,4 +117,8 @@
                                   :get
                                   (url-for ::user2
                                            :path-params
-                                           {:id "foo"}))))))))
+                                           {:id "foo"})))))
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"Ref ':user-handlr' was not resolved. Did you mean ':user-handler'?"
+                            (cp/resolve-refs #{["/user" :get (cp/ref :user-handlr)]}
+                                             test-system))))))
