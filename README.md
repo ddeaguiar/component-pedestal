@@ -1,5 +1,7 @@
 # component-pedestal
 
+[![Build Status](https://travis-ci.org/ddeaguiar/component-pedestal.svg?branch=master)](https://travis-ci.org/ddeaguiar/component-pedestal)
+
 ## Currently Experimental
 
 A [Component](https://github.com/stuartsierra/component)
