@@ -28,7 +28,10 @@
 
 (defn- resolve-sym
   [sym]
-  (some-> sym resolve var-get))
+  (if-let [resolved (some-> sym resolve var-get-if-bound)]
+    resolved
+    (throw (ex-info (format "Unable to resolve symbol '%s'." sym) {:reason ::unresolvable-symbol
+                                                                   :cause  sym}))))
 
 (defrecord Handler [handler]
   interceptor/IntoInterceptor
