@@ -29,7 +29,7 @@ initialization.
 
 (defn user
   [req]
-  (let [db        (:db req)
+  (let [db        (get-in req [::cp/deps :db])
         id        (get-in req [:path-params :id])
         user-name (get db id "not found")]
     (ring-resp/response (str "User name is: " user-name))))

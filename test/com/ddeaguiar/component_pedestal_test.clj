@@ -36,15 +36,15 @@
 
 (defn user
   [req]
-  (let [db        (:db req)
+  (let [db        (get-in req [::cp/deps :db])
         id        (get-in req [:path-params :id])
         user-name (get db id "not found")]
     (ring-resp/response (str "User name is: " user-name))))
 
 (def user-interceptor
   {:name  ::user-interceptor
-   :enter (fn [component ctx]
-            (let [db   (:db component)
+   :enter (fn [ctx]
+            (let [db   (get-in ctx [::cp/deps :db])
                   id   (get-in ctx [:request :path-params :id])
                   user (get db id "not found")]
               (assoc-in ctx [:request :user] user)))})

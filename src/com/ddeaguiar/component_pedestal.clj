@@ -11,10 +11,11 @@
 (defrecord Interceptor [name enter error leave]
   interceptor/IntoInterceptor
   (-interceptor [this]
-    (interceptor/->Interceptor name
-                               (when enter (fn [ctx] (enter this ctx)))
-                               (when leave (fn [ctx] (leave this ctx)))
-                               (when error (fn [ctx] (error this ctx))))))
+    (let [deps (dissoc this :name :enter :error :leave)]
+      (interceptor/->Interceptor name
+                                 (when enter (fn [ctx] (enter (assoc ctx ::deps deps))))
+                                 (when leave (fn [ctx] (leave (assoc ctx ::deps deps))))
+                                 (when error (fn [ctx] (error (assoc ctx ::deps deps))))))))
 
 (defn component-interceptor
   "Interceptor ctor."
@@ -39,10 +40,11 @@
     (let [f (resolve-sym handler)]
       (interceptor/map->Interceptor {:name  (interceptor/interceptor-name (keyword handler))
                                      :enter (fn [ctx]
-                                              (assoc ctx
-                                                     :response
-                                                     (f (merge (dissoc this :handler)
-                                                               (:request ctx)))))}))))
+                                              (let [req (-> ctx
+                                                            :request
+                                                            (assoc ::deps
+                                                                   (dissoc this :handler)))]
+                                                (assoc ctx :response (f req))))}))))
 
 (defn component-handler
   "Handler ctor."
