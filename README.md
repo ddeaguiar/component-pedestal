@@ -13,7 +13,7 @@ interceptors and handlers.
 
 Components provide service capabilities by exposing routes. To do this
 they implement the `RouteProvider` protocol. The `Pedestal` component
-is configured in the system map to depend on and route providers and
+is configured in the system map to depend on route providers and
 builds the service's routes from them.
 
 Interceptor and/or handlers are created in the context of a
