@@ -6,57 +6,57 @@
 
 A [Component](https://github.com/stuartsierra/component)
 implementation of [Pedestal](https://github.com/pedestal/pedestal)
-inspired by [Arachne](http://arachne-framework.org/) and
-[Integrant](https://github.com/weavejester/integrant) whose
-goal is to streamline the wiring of system dependencies to
+ whose goal is to streamline the wiring of system dependencies to
 interceptors and handlers.
 
 ## Usage
 
-Interceptors and/or handlers which have system dependencies are
-initialized in the system map using the `component-interceptor` and
-`component-handler` constructor functions. These components are then
-referenced in the routes using the `refs` function. Interceptor and/or
-handler component references are resolved during service
-initialization.
+Components provide service capabilities by exposing routes. To do this
+they implement the `RouteProvider` protocol. The `Pedestal` component
+is configured in the system map to depend on and route providers and
+builds the service's routes from them.
+
+Interceptor and/or handlers are created in the context of a
+`RouterProvider` component so that they can access it's state.
 
 ```
 (require '[io.pedestal.http :as http])
 (require '[io.pedestal.http.body-params :as body-params])
-(require '[com.ddeaguiar.component.pedestal :as cp])
+(require '[com.ddeaguiar.component.pedestal :as component-pedestal])
 (require '[com.stuartsierra.component :as component])
 (require '[ring-resp/response :as ring-resp])
 
-(defn user
-  [req]
-  (let [db        (get-in req [::cp/deps :db])
-        id        (get-in req [:path-params :id])
-        user-name (get db id "not found")]
-    (ring-resp/response (str "User name is: " user-name))))
+(defprotocol UserStore
+  (find-user [this id]))
+
+(defn user-handler
+  [user-store]
+  (fn [req]
+    (let [id        (get-in req [:path-params :id])
+          user-name (or (find-user user-store id) "not found")]
+      (ring-resp/response (str "User name is: " user-name)))))
 
 (def common-interceptors [(body-params/body-params) http/html-body])
 
-(def routes
-#{["/user/:id" :get (conj common-interceptors (cp/ref :user-handler))]})
+
+(defrecord Users [db]
+  component-pedestal/RouteProvider
+  (routes [this]
+    #{["/user/:id" :get (conj common-interceptors (user-handler this)) :route-name ::user]})
+
+  UserStore
+  (find-user [_ id]
+    (get db id)))
 
 (def system (component/system-map
              :db {"dan"  "Daniel De Aguiar"
                   "yogi" "Yogi Bear"}
-             :user-handler (component/using
-                            (cp/component-handler `user)
-                            [:db])
-             :service {:env                     :test
-                       ::http/routes            routes
-                       ::http/resource-path     "/public"
-                       ::http/type              :jetty
-                       ::http/port              0
-                       ::http/container-options {:h2c? true
-                                                 :h2?  false
-                                                 :ssl? false}}
+             :user-store (component/using
+                          (map->Users {})
+                          [:db])
              :pedestal (component/using
-                        (cp/component-pedestal)
-                        [:service
-                         :user-handler])))
+                         (component-pedestal/component-pedestal)
+                        [:user-store])))
 ```
 
 ## Copyright and License

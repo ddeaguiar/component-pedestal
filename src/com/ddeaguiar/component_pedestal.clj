@@ -5,136 +5,99 @@
             [io.pedestal.interceptor :as interceptor]
             [io.pedestal.log :as log]
             [io.pedestal.http.route :as route]
-            [clojure.walk :as walk]
-            [clj-fuzzy.jaro-winkler :refer [jaro-winkler]]))
+            [clojure.walk :as walk]))
 
-(defrecord Interceptor [name enter error leave]
-  interceptor/IntoInterceptor
-  (-interceptor [this]
-    (let [deps (dissoc this :name :enter :error :leave)]
-      (interceptor/->Interceptor name
-                                 (when enter (fn [ctx] (enter (assoc ctx ::deps deps))))
-                                 (when leave (fn [ctx] (leave (assoc ctx ::deps deps))))
-                                 (when error (fn [ctx] (error (assoc ctx ::deps deps))))))))
-
-(defn component-interceptor
-  "Interceptor ctor."
-  [interceptor-map]
-  (map->Interceptor interceptor-map))
-
-(defn- var-get-if-bound
-  [^clojure.lang.Var x]
-  (when (and x (.isBound x))
-    (var-get x)))
-
-(defn- resolve-sym
-  [sym]
-  (if-let [resolved (some-> sym resolve var-get-if-bound)]
-    resolved
-    (throw (ex-info (format "Unable to resolve symbol '%s'." sym) {:reason ::unresolvable-symbol
-                                                                   :cause  sym}))))
-
-(defrecord Handler [handler]
-  interceptor/IntoInterceptor
-  (-interceptor [this]
-    (let [f (resolve-sym handler)]
-      (interceptor/map->Interceptor {:name  (interceptor/interceptor-name (keyword handler))
-                                     :enter (fn [ctx]
-                                              (let [req (-> ctx
-                                                            :request
-                                                            (assoc ::deps
-                                                                   (dissoc this :handler)))]
-                                                (assoc ctx :response (f req))))}))))
-
-(defn component-handler
-  "Handler ctor."
-  [sym]
-  {:pre [(symbol? sym)]}
-  (Handler. sym))
-
-(defn- dev?
-  [service-map]
-  (= :dev (:env service-map)))
-
-(defn- test?
-  [service-map]
-  (= :test (:env service-map)))
-
-;; Using deftype instead of defrecord because
-;; I don't want Ref to be supported with 'into'.
-;; A common pattern with route definitions is:
-;;
-;; `["/foo" :get (into common-interceptors [my-interceptor my-handler])]`
-(deftype Ref [key])
-
-(defn ref
-  [key]
-  {:pre [(keyword? key)]}
-  (Ref. key))
-
-(defn ref? [x] (instance? Ref x))
-
-(defn- ref-alternative
-  [r dict]
-  (->> dict
-       keys
-       (map #(vector % (jaro-winkler (str (.key r)) (str %))))
-       (sort-by last)
-       last
-       first))
-
-(defn- resolve-ref
-  "Resolves r using dict."
-  [r dict]
-  {:pre [(ref? r)]}
-  (if-let [resolved (get dict (.key r))]
-    resolved
-    (throw (ex-info (format "Ref '%s' was not resolved. Did you mean '%s'?"
-                            (.key r)
-                            (ref-alternative r dict))
-                    {:reason ::unresolvable-component-reference
-                     :cause  (.key r)}))))
-
-(defn resolve-refs
-  "Resolves all References in data using dict."
-  [data dict]
-  (walk/postwalk (fn [x]
-                   (cond-> x (ref? x) (resolve-ref dict)))
-                 data))
+(defprotocol RouteProvider
+  (routes [this]
+    "A collection of un-expanded routes."))
 
 (defprotocol Service
   (service-fn [this]
     "The service fn."))
 
-(defrecord Pedestal [service server]
+(defrecord Pedestal [service]
   component/Lifecycle
   (start [this]
-    (if server
+    (if (service-fn this)
       this
-      (do
-        (log/info :msg "Starting Pedestal.")
+      (let [route-providers (filter #(satisfies? RouteProvider %) (vals this))
+            routes          (->> route-providers
+                                 (map routes)
+                                 (reduce into))]
+        (log/info :msg "Starting Pedestal." :port (::http/port service))
         (assoc this
-               :server
+               :service
                (-> service
-                   (update ::http/routes resolve-refs (dissoc this [:service]))
+                   (assoc ::http/routes routes)
                    http/default-interceptors
-                   (cond-> (dev? service) http/dev-interceptors)
+                   (cond-> (::dev? this) http/dev-interceptors)
                    http/create-server
-                   (cond-> (not (test? service)) http/start))))))
+                   http/start)))))
   (stop [this]
-    (when (and server (not (test? server)))
-      (log/info :msg "Stopping Pedestal.")
-      (try
-        (http/stop service)
-        (catch Throwable t
-          (log/error :msg "Error stopping Pedestal." :exception t))))
-    (assoc this :server nil))
+    (log/info :msg "Stopping Pedestal.")
+    (try
+      (http/stop service)
+      (catch Throwable t
+        (log/error :msg "Error stopping Pedestal." :exception t)))
+    (assoc this :service nil))
 
   Service
-  (service-fn [this]
-    (get-in this [:server ::http/service-fn])))
+  (service-fn [_]
+    (::http/service-fn service)))
+
+(defn service-map
+  "Returns initial service map for the Pedestal server."
+  []
+  {::http/resource-path     "/public"
+   ::http/type              :jetty
+   ::http/port              8080
+   ::http/join?             false
+   ::http/container-options {:h2c? true
+                             :h2?  false
+                             :ssl? false}})
 
 (defn component-pedestal
-  "Pedestal ctor."
-  ([] (map->Pedestal {}))
-  ([service] (map->Pedestal {:service service})))
+  "Pedestal component ctor."
+  [] (map->Pedestal {:service (service-map)}))
+
+(defn with-port
+  "Updates the pedestal component to bind to port. Must be called
+  before start."
+  [component port]
+  (assoc-in component [:service ::http/port] port))
+
+(defn with-automatic-port
+  "Updates pedestal component to bind to a random free port. Must be called
+  before start."
+  [component]
+  (with-port component 0))
+
+(defn with-container-options
+  "Updates the pedestal component with container-options. Must be called
+  before start."
+  [component container-options]
+  (assoc-in component [:service ::http/container-options] container-options))
+
+(defn with-resource-path
+  "Updates the pedestal component with resource-path. Must be called
+  before start."
+  [component resource-path]
+  (assoc-in component [:service ::http/resource-path] resource-path))
+
+(defn with-dev-mode
+  "Adds development-mode interceptors to the pedestal component. Must
+  be called before start."
+  [component]
+  (assoc component ::dev? true))
+
+(defn port
+  "Returns bound port of the (started) pedestal component."
+  [component]
+  (some-> component :service ::http/server
+          .getConnectors (aget 0) .getLocalPort))
+
+(defn join
+  "Joins the server thread, blocking the current thread."
+  [component]
+  (.join ^org.eclipse.jetty.server.Server
+         (get-in component [:service ::http/server])))
