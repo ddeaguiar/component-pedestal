@@ -1,11 +1,9 @@
 (ns com.ddeaguiar.component-pedestal
-  (:refer-clojure :exclude [ref])
   (:require [com.stuartsierra.component :as component]
             [io.pedestal.http :as http]
             [io.pedestal.interceptor :as interceptor]
             [io.pedestal.log :as log]
-            [io.pedestal.http.route :as route]
-            [clojure.walk :as walk]))
+            [io.pedestal.http.route :as route]))
 
 (defprotocol RouteProvider
   (routes [this]
