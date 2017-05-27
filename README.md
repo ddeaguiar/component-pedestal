@@ -2,8 +2,6 @@
 
 [![Build Status](https://travis-ci.org/ddeaguiar/component-pedestal.svg?branch=master)](https://travis-ci.org/ddeaguiar/component-pedestal)
 
-## Currently Experimental
-
 A [Component](https://github.com/stuartsierra/component)
 implementation of [Pedestal](https://github.com/pedestal/pedestal)
  whose goal is to streamline the wiring of system dependencies to
