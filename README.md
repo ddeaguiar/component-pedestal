@@ -16,8 +16,10 @@ they implement the `RouteProvider` protocol. The `Pedestal` component
 is configured in the system map to depend on route providers and
 builds the service's routes from them.
 
-Interceptor and/or handlers are created in the context of a
-`RouterProvider` component so that they can access it's state.
+Components which provide routes may attach themselves to the context
+and request through the `com.ddeaguiar.component.pedestal/attach`
+fn. This provides downstream interceptors and handlers access to the
+component.
 
 ```
 (require '[io.pedestal.http :as http])
@@ -26,23 +28,23 @@ Interceptor and/or handlers are created in the context of a
 (require '[com.stuartsierra.component :as component])
 (require '[ring-resp/response :as ring-resp])
 
-(defprotocol UserStore
-  (find-user [this id]))
+(find-user [this id]))
 
 (defn user-handler
-  [user-store]
-  (fn [req]
-    (let [id        (get-in req [:path-params :id])
-          user-name (or (find-user user-store id) "not found")]
-      (ring-resp/response (str "User name is: " user-name)))))
-
-(def common-interceptors [(body-params/body-params) http/html-body])
+  [req]
+  (let [user-store (::component-pedestal/component req)
+        id         (get-in req [:path-params :id])
+        user-name  (or (find-user user-store id) "not found")]
+    (ring-resp/response (str "User name is: " user-name))))
 
 
 (defrecord Users [db]
   component-pedestal/RouteProvider
   (routes [this]
-    #{["/user/:id" :get (conj common-interceptors (user-handler this)) :route-name ::user]})
+    #{["/user/:id" :get (conj [(body-params/body-params)
+                               http/html-body
+                               (component-pedestal/attach this)]
+                              `user-handler) :route-name ::user]})
 
   UserStore
   (find-user [_ id]
@@ -55,7 +57,7 @@ Interceptor and/or handlers are created in the context of a
                           (map->Users {})
                           [:db])
              :pedestal (component/using
-                         (component-pedestal/component-pedestal)
+                        (component-pedestal/with-automatic-port (component-pedestal/component-pedestal))
                         [:user-store])))
 ```
 

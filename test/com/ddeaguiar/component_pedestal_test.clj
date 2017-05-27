@@ -7,27 +7,26 @@
    [io.pedestal.http :as http]
    [io.pedestal.test :refer [response-for]]
    [io.pedestal.http.body-params :as body-params]
-   [ring.util.response :as ring-resp]
-   [io.pedestal.interceptor :as interceptor]
-   [io.pedestal.http.route :as route]))
+   [ring.util.response :as ring-resp]))
 
 (defprotocol UserStore
   (find-user [this id]))
 
 (defn user-handler
-  [user-store]
-  (fn [req]
-    (let [id        (get-in req [:path-params :id])
-          user-name (or (find-user user-store id) "not found")]
-      (ring-resp/response (str "User name is: " user-name)))))
-
-(def common-interceptors [(body-params/body-params) http/html-body])
+  [req]
+  (let [user-store (::component-pedestal/component req)
+        id         (get-in req [:path-params :id])
+        user-name  (or (find-user user-store id) "not found")]
+    (ring-resp/response (str "User name is: " user-name))))
 
 
 (defrecord Users [db]
   component-pedestal/RouteProvider
   (routes [this]
-    #{["/user/:id" :get (conj common-interceptors (user-handler this)) :route-name ::user]})
+    #{["/user/:id" :get (conj [(body-params/body-params)
+                               http/html-body
+                               (component-pedestal/attach this)]
+                              `user-handler) :route-name ::user]})
 
   UserStore
   (find-user [_ id]

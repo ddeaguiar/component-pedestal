@@ -99,3 +99,13 @@
   [component]
   (.join ^org.eclipse.jetty.server.Server
          (get-in component [:service ::http/server])))
+
+(defn attach
+  "Returns an interceptor which attaches c to the context
+  and request on enter."
+  [c & args]
+  (let [{:keys [name enter error leave]} (apply hash-map args)]
+    (interceptor/interceptor {:name  (interceptor/interceptor-name name)
+                              :enter (fn [ctx] (-> ctx
+                                                   (assoc ::component c)
+                                                   (assoc-in [:request ::component] c)))})))
