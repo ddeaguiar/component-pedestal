@@ -26,7 +26,8 @@ component.
 (require '[com.stuartsierra.component :as component])
 (require '[ring-resp/response :as ring-resp])
 
-(find-user [this id]))
+(defprotocol UserStore
+  (find-user [this id]))
 
 (defn user-handler
   [req]
