@@ -10,6 +10,8 @@
   :profiles {:dev {:dependencies [[org.clojure/tools.namespace "0.2.11"]
                                   [com.stuartsierra/component.repl "0.2.0"]
                                   [io.pedestal/pedestal.jetty "0.5.2"]
+                                  [io.pedestal/pedestal.tomcat "0.5.2"]
+                                  [io.pedestal/pedestal.immutant "0.5.2"]
                                   [ch.qos.logback/logback-classic "1.1.8" :exclusions [org.slf4j/slf4j-api]]
                                   [org.slf4j/jul-to-slf4j "1.7.22"]
                                   [org.slf4j/log4j-over-slf4j "1.7.22"]]

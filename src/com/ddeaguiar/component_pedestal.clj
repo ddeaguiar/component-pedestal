@@ -3,7 +3,8 @@
             [io.pedestal.http :as http]
             [io.pedestal.interceptor :as interceptor]
             [io.pedestal.log :as log]
-            [io.pedestal.http.route :as route]))
+            [io.pedestal.http.route :as route]
+            [com.ddeaguiar.component-pedestal.http :as cp.http]))
 
 (defprotocol RouteProvider
   (routes [this]
@@ -21,8 +22,12 @@
       (let [route-providers (filter #(satisfies? RouteProvider %) (vals this))
             routes          (->> route-providers
                                  (map routes)
-                                 (reduce into))]
+                                 (reduce into))
+            type (::http/type service)]
         (log/info :msg "Starting Pedestal." :port (::http/port service))
+        (when-let [server-ns (and (contains? #{:jetty :tomcat :immutant} type)
+                                  (symbol (str "com.ddeaguiar.component-pedestal.http." (name type))))]
+          (require server-ns))
         (assoc this
                :service
                (-> service
@@ -37,7 +42,7 @@
       (http/stop service)
       (catch Throwable t
         (log/error :msg "Error stopping Pedestal." :exception t)))
-    (assoc this :service nil))
+    (assoc-in this [:service ::http/service-fn] nil))
 
   Service
   (service-fn [_]
@@ -56,7 +61,8 @@
 
 (defn component-pedestal
   "Pedestal component ctor."
-  [] (map->Pedestal {:service (service-map)}))
+  ([] (component-pedestal (service-map)))
+  ([sm] (map->Pedestal {:service sm})))
 
 (defn with-port
   "Updates the pedestal component to bind to port. Must be called
@@ -91,14 +97,16 @@
 (defn port
   "Returns bound port of the (started) pedestal component."
   [component]
-  (some-> component :service ::http/server
-          .getConnectors (aget 0) .getLocalPort))
+  (let [server (get-in component [:service ::http/server])]
+    (when (satisfies? cp.http/Discoverable server)
+      (cp.http/port server))))
 
 (defn join
   "Joins the server thread, blocking the current thread."
   [component]
-  (.join ^org.eclipse.jetty.server.Server
-         (get-in component [:service ::http/server])))
+  (let [server (get-in component [:service ::http/server])]
+    (when (satisfies? cp.http/Joinable server)
+      (cp.http/join server))))
 
 (defn attach
   "Returns an interceptor which attaches c to the request on enter."

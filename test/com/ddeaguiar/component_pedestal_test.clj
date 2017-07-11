@@ -32,18 +32,20 @@
   (find-user [_ id]
     (get db id)))
 
-(def system (component/system-map
-             :db {"dan"  "Daniel De Aguiar"
-                  "yogi" "Yogi Bear"}
-             :user-store (component/using
-                          (map->Users {})
-                          [:db])
-             :pedestal (component/using
-                        (component-pedestal/with-automatic-port (component-pedestal/component-pedestal))
-                        [:user-store])))
+(defn test-system
+  []
+  (component/system-map
+   :db {"dan"  "Daniel De Aguiar"
+        "yogi" "Yogi Bear"}
+   :user-store (component/using
+                (map->Users {})
+                [:db])
+   :pedestal (component/using
+              (component-pedestal/with-automatic-port (component-pedestal/component-pedestal))
+              [:user-store])))
 
 (deftest component-pedestal-test
-  (with-service system :pedestal
+  (with-service (test-system) :pedestal
     (is (= "User name is: Daniel De Aguiar"
            (:body (response-for *service*
                                 :get
