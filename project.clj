@@ -5,8 +5,7 @@
             :url  "http://opensource.org/licenses/MIT"}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [com.stuartsierra/component "0.3.2" :scope "provided"]
-                 [io.pedestal/pedestal.service "0.5.2" :scope "provided"]
-                 [clj-fuzzy "0.4.0"]]
+                 [io.pedestal/pedestal.service "0.5.2" :scope "provided"]]
   :profiles {:dev {:dependencies [[org.clojure/tools.namespace "0.2.11"]
                                   [com.stuartsierra/component.repl "0.2.0"]
                                   [io.pedestal/pedestal.jetty "0.5.2"]
