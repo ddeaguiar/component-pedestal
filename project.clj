@@ -3,7 +3,7 @@
   :url "https://github.com/ddeaguiar/component-pedestal"
   :license {:name "The MIT License"
             :url  "http://opensource.org/licenses/MIT"}
-  :dependencies [[org.clojure/clojure "1.8.0"]
+  :dependencies [[org.clojure/clojure "1.8.0" :scope "provided"]
                  [com.stuartsierra/component "0.3.2" :scope "provided"]
                  [io.pedestal/pedestal.service "0.5.2" :scope "provided"]]
   :profiles {:dev {:dependencies [[org.clojure/tools.namespace "0.2.11"]

@@ -1,0 +1,29 @@
+{:users/user
+ {:txes [[{:db/ident       :user/id
+           :db/valueType   :db.valueType/uuid
+           :db/cardinality :db.cardinalty/one
+           :db/unique      :db.unique/identity
+           :db/doc         "User id."}
+          {:db/ident       :user/email
+           :db/valueType   :db.valueType/string
+           :db/cardinality :db.cardinalty/one
+           :db/unique      :db.unique/value
+           :db/doc         "User email."}
+          {:db/ident       :user/firstName
+           :db/valueType   :db.valueType/string
+           :db/cardinality :db.cardinalty/one
+           :db/doc         "User first name."}
+          {:db/ident       :user/lastName
+           :db/valueType   :db.valueType/string
+           :db/cardinality :db.cardinalty/one
+           :db/doc         "User last name."}]]}
+ :users/auth
+ {:txes [[{:db/ident       :auth/userName
+           :db/valueType   :db.valueType/string
+           :db/cardinality :db.cardinalty/one
+           :db/unique      :db.unique/value
+           :db/doc         "User username."}
+          {:db/ident       :auth/password
+           :db/valueType   :db.valueType/string
+           :db/cardinality :db.cardinalty/one
+           :db/doc         "User password (encrypted)"}]]}}
